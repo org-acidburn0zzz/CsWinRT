@@ -5,6 +5,8 @@ namespace cswinrt
     using namespace std::literals;
     using namespace winmd::reader;
 
+    std::string get_mapped_element_type(ElementType elementType);
+
     template <typename T>
     bool has_attribute(T const& row, std::string_view const& type_namespace, std::string_view const& type_name)
     {
@@ -215,7 +217,7 @@ namespace cswinrt
                 case ElementType::Object:
                     return object_type{};
                 }
-                throw_invalid("element type not supported");
+                throw_invalid("element type not supported: " + get_mapped_element_type(type));
             },
             [](coded_index<TypeDefOrRef> type) -> type_semantics
             {
@@ -606,5 +608,94 @@ namespace cswinrt
         }
 
         return &*nameItr;
+    }
+
+    std::string get_mapped_element_type(ElementType elementType)
+    {
+        switch (elementType)
+        {
+        case ElementType::End:
+            return "empty";
+        case ElementType::Void:
+            return "void";
+        case ElementType::Boolean:
+            return "boolean";
+        case ElementType::Char:
+            return "char";
+        case ElementType::I1:
+            return "I1";
+        case ElementType::U1:
+            return "UI";
+        case ElementType::I2:
+            return "I2";
+        case ElementType::U2:
+            return "U2";
+        case ElementType::I4:
+            return "I4";
+        case ElementType::U4:
+            return "U4";
+        case ElementType::I8:
+            return "I8";
+        case ElementType::U8:
+            return "U8";
+        case ElementType::R4:
+            return "R4";
+        case ElementType::R8:
+            return "R8";
+        case ElementType::String:
+            return "string";
+        case ElementType::Ptr:
+            return "ptr";
+        case ElementType::ByRef:
+            return "ref";
+        case ElementType::ValueType:
+            return "value type";
+        case ElementType::Class:
+            return "class";
+        case ElementType::Var:
+            return "var";
+        case ElementType::Array:
+            return "Array";
+        case ElementType::GenericInst:
+            return "generic";
+        case ElementType::TypedByRef:
+            return "Typed by ref";
+        case ElementType::I:
+            return "IntPtr";
+        case ElementType::U:
+            return "UIntPtr";
+        case ElementType::FnPtr:
+            return "function ptr";
+        case ElementType::Object:
+            return "object";
+        case ElementType::SZArray:
+            return "SZArray";
+        case ElementType::MVar:
+            return "generic in method";
+        case ElementType::CModReqd:
+            return "required modifier";
+        case ElementType::CModOpt:
+            return "optional modifier";
+        case ElementType::Internal:
+            return "internal";
+        case ElementType::Modifier:
+            return "modifier";
+        case ElementType::Sentinel:
+            return "sentinel";
+        case ElementType::Pinned:
+            return "pinned";
+        case ElementType::Type:
+            return "type";
+        case ElementType::TaggedObject:
+            return "tagged object";
+        case ElementType::Field:
+            return "field";
+        case ElementType::Property:
+            return "property";
+        case ElementType::Enum:
+            return "enum";
+        default:
+            return "unknown";
+        }
     }
 }
