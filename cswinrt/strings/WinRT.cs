@@ -316,6 +316,16 @@ namespace WinRT
         public static ObjectReference<I> ActivateInstance<I>() => _factory.Value._ActivateInstance<I>();
     }
 
+    internal class ComponentActivationFactory<T> : global::WinRT.Interop.IActivationFactory where T : class, new()
+    {
+        public IntPtr ActivateInstance()
+        {
+            T comp = new T();
+            using var marshaler = MarshalInspectable.CreateMarshaler(comp);
+            return marshaler.GetRef();
+        }
+    }
+
     internal unsafe class EventSource<TDelegate>
         where TDelegate : class, MulticastDelegate
     {
