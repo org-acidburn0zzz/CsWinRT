@@ -22,6 +22,8 @@ using System.Collections;
 using WinRT.Interop;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Security.Cryptography;
+using Windows.Security.Cryptography.Core;
 
 namespace UnitTest
 {
@@ -1702,6 +1704,33 @@ namespace UnitTest
             nonAgileClass.Observe(observable);
             observable.Add(3);
             Assert.Equal(6, observable.Observation);
+        }
+
+        [Fact]
+        public void TestMacKey()
+        {
+#if !NET5_0
+            bool success = false;
+#else
+            bool success = true;
+#endif
+            try
+            {
+                string key = ".....";
+                IBuffer keyMaterial = CryptographicBuffer.ConvertStringToBinary(key, BinaryStringEncoding.Utf8);
+                MacAlgorithmProvider mac = MacAlgorithmProvider.OpenAlgorithm(MacAlgorithmNames.HmacSha1);
+                CryptographicKey cryptoKey = mac.CreateKey(keyMaterial);
+                Assert.NotNull(cryptoKey);
+            }
+            catch(Exception)
+            {
+#if !NET5_0
+success = true;
+#else
+                success = false;           
+#endif
+            }
+            Assert.True(success);
         }
 
         [ComImport]
