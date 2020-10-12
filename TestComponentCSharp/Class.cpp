@@ -512,6 +512,30 @@ namespace winrt::TestComponentCSharp::implementation
         _stringPairChanged.remove(token);
     }
 
+    static void TypedEventHandlerEmpty(const Windows::Foundation::IInspectable& sender, const Windows::Foundation::IInspectable& args)
+    {
+    }
+
+/*    static Windows::Foundation::Uri TypedEventHandlerEmpty2(const Windows::Foundation::IInspectable& sender)
+    {
+    }*/
+
+    Windows::Foundation::IInspectable Class::GetDelegateAsObject() noexcept
+    {
+        //         _object = handler.as<IInspectable>();
+//        _object = winrt::box_value(handler);
+//        TypedEventHandler<Windows::Foundation::IInspectable, Windows::Foundation::IInspectable> h = TypedEventHandlerEmpty;
+        return GetDelegate().as<IInspectable>();
+    }
+
+    TestComponentCSharp::ProvideUri Class::GetDelegate() noexcept
+    {
+//        EventHandler<Windows::Foundation::Uri > h = TypedEventHandlerEmpty2;
+//        TestComponentCSharp::ProvideUri h(TypedEventHandlerEmpty2);
+        TestComponentCSharp::ProvideUri handler = [] { return Windows::Foundation::Uri(L"http://microsoft.com"); };
+        return handler;
+    }
+
     BlittableStruct Class::BlittableStructProperty()
     {
         return _blittableStruct.blittable;

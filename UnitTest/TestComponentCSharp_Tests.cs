@@ -192,6 +192,16 @@ namespace UnitTest
             Assert.Equal(events_received, events_expected);
         }
 
+        [Fact]
+        public void TestEventMarshaling()
+        {
+            var obj = TestObject.GetDelegate();
+            TestObject.CallForUri(obj);
+
+            var obj2 = TestObject.GetDelegateAsObject();
+            TestObject.ObjectProperty = obj2;
+        }
+
         // TODO: when the public WinUI nuget supports IXamlServiceProvider, just use the projection
         [ComImport]
         [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -850,6 +860,9 @@ namespace UnitTest
             TestObject.BindableObservableVectorProperty = observable;
             observable.Add(3);
             Assert.Equal(6, observable.Observation);
+
+            TypedEventHandler<object, int> eventHandler = (o, i) => Assert.Equal(o, i);
+            TestObject.ObjectProperty = eventHandler;
         }
 
         [Fact]

@@ -178,6 +178,9 @@ namespace TestComponentCSharp
         void CallForStringPair(ProvideStringPair provideStringPair);
         event Windows.Foundation.EventHandler<Windows.Foundation.Collections.IKeyValuePair<String, String> > StringPairPropertyChanged;
 
+        Object GetDelegateAsObject();
+        ProvideUri GetDelegate();
+
         // Structs
         BlittableStruct BlittableStructProperty;
         BlittableStruct GetBlittableStruct();

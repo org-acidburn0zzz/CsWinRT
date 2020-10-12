@@ -93,14 +93,44 @@ namespace WinRT
                 return TryUnwrapObject(del.Target, out objRef);
             }
 
+            bool Net5Found = false;
+            objRef = null;
             if (o is IWinRTObject winrtObj && winrtObj.HasUnwrappableNativeObject)
             {
+                Net5Found = true;
                 objRef = winrtObj.NativeObject;
-                return true;
             }
 
-            objRef = null;
-            return false;
+            Type type = o.GetType();
+
+            bool typeFound = false;
+            ObjectReferenceWrapperAttribute objRefWrapper = type.GetCustomAttribute<ObjectReferenceWrapperAttribute>();
+            if (objRefWrapper is object)
+            {
+                typeFound = true;
+                if (!Net5Found)
+                {
+                    objRef = (IObjectReference) type.GetField(objRefWrapper.ObjectReferenceField, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly).GetValue(o);
+                }
+            }
+            else
+            {
+                ProjectedRuntimeClassAttribute projectedClass = type.GetCustomAttribute<ProjectedRuntimeClassAttribute>();
+                if (projectedClass is object && projectedClass.DefaultInterfaceProperty != null)
+                {
+                    var defaultProperty = type.GetProperty(projectedClass.DefaultInterfaceProperty, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+                    if (defaultProperty is object)
+                    {
+                        typeFound = TryUnwrapObject(defaultProperty.GetValue(o), out var objRef2);
+                        if (!Net5Found && typeFound)
+                        {
+                            objRef = objRef2;
+                        }
+                    }
+                }
+            }
+
+            return Net5Found || typeFound;
         }
 
         public static void RegisterObjectForInterface(object obj, IntPtr thisPtr) => TryRegisterObjectForInterface(obj, thisPtr);
