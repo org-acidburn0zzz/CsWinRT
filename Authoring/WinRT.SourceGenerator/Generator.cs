@@ -6,6 +6,7 @@ using System.IO;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Generator
@@ -133,6 +134,27 @@ namespace Generator
             peBlob.WriteContentTo(fs);
         }
 
+        public void LookForDiagnostics(GeneratorExecutionContext context)
+        {
+            // there is an opportunity to write a CodeFix with an analyzer 
+            DiagnosticDescriptor InvalidAsyncInheritance = 
+                new DiagnosticDescriptor(id: "WME1084",
+                title: "Windows Runtime types cannot implement async interfaces.",
+                messageFormat: ("Type '{0}' implements Windows Runtime async interface '{1}'." + 
+                    "Windows Runtime types cannot implement async interfaces." + 
+                    " Please use the System.Runtime.InteropServices.WindowsRuntime.AsyncInfo class" +
+                    " to generate async operations for export to Windows Runtime."),
+                category: "WinRT Error",
+                DiagnosticSeverity.Error,
+                isEnabledByDefault: true);
+
+            foreach (SyntaxTree tree in context.Compilation.SyntaxTrees)
+            {
+                SourceText srcText = tree.GetText();
+                srcText.
+            }
+        }
+
         public void Execute(GeneratorExecutionContext context)
         {
             if (!IsCsWinRTComponent(context))
@@ -144,6 +166,8 @@ namespace Generator
 
             try
             {
+                LookForDiagnostics(context);
+
                 string assembly = GetAssemblyName(context);
                 string version = GetAssemblyVersion(context);
                 MetadataBuilder metadataBuilder = new MetadataBuilder();
