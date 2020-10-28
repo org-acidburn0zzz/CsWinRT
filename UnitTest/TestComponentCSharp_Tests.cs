@@ -70,11 +70,11 @@ namespace UnitTest
             Assert.True(buffLen4.Length == 4);
             Assert.Throws<ArgumentException>(() => buffLen4.GetByte(5)); // shouldn't have a 5th element
             Assert.True(buffLen4.GetByte(0) == 0x02); // make sure we got the 2nd element of the array
-            
+
             arrayLen3.CopyTo(buffLen4); // Array to Buffer copying
             Assert.True(buffLen4.Length == 4);
             Assert.True(buffLen4.GetByte(0) == 0x01); // make sure we updated the first few 
-            Assert.True(buffLen4.GetByte(1) == 0x02); 
+            Assert.True(buffLen4.GetByte(1) == 0x02);
             Assert.True(buffLen4.GetByte(2) == 0x03);
             Assert.True(buffLen4.GetByte(3) == 0x14); // and kept the last one 
 
@@ -136,14 +136,14 @@ namespace UnitTest
         public void TestBufferAsStreamUsingAsBuffer()
         {
             var arr = new byte[] { 0x01, 0x02 };
-            Stream stream = arr.AsBuffer().AsStream();            
+            Stream stream = arr.AsBuffer().AsStream();
             Assert.True(stream != null);
             Assert.True(stream.Length == 2);
         }
 
         [Fact]
         public void TestBufferAsStreamWithEmptyBuffer1()
-        { 
+        {
             var buffer = new Windows.Storage.Streams.Buffer(0);
             Stream stream = buffer.AsStream();
             Assert.True(stream != null);
@@ -265,7 +265,7 @@ namespace UnitTest
 
         [Fact]
         public void TestEmptyBufferCopyTo()
-        { 
+        {
             var buffer = new Windows.Storage.Streams.Buffer(0);
             byte[] array = { };
             buffer.CopyTo(array);
@@ -353,7 +353,7 @@ namespace UnitTest
             Assert.True(arr1[1] == arr2[1]);
         }
 
- #endif
+#endif
 
         async Task TestStorageFileAsync()
         {
@@ -397,7 +397,7 @@ namespace UnitTest
         [Fact]
         public void TestWriteBuffer()
         {
-            Assert.True(InvokeWriteBufferAsync().Wait(1000)); 
+            Assert.True(InvokeWriteBufferAsync().Wait(1000));
         }
 
         [Fact]
@@ -1661,11 +1661,25 @@ namespace UnitTest
         [Fact]
         public void TestMatrix3DTypeMapping()
         {
-            var matrix3D = new Matrix3D {
-                M11 = 11, M12 = 12, M13 = 13, M14 = 14,
-                M21 = 21, M22 = 22, M23 = 23, M24 = 24,
-                M31 = 31, M32 = 32, M33 = 33, M34 = 34,
-                OffsetX = 41, OffsetY = 42, OffsetZ = 43,M44 = 44 };
+            var matrix3D = new Matrix3D
+            {
+                M11 = 11,
+                M12 = 12,
+                M13 = 13,
+                M14 = 14,
+                M21 = 21,
+                M22 = 22,
+                M23 = 23,
+                M24 = 24,
+                M31 = 31,
+                M32 = 32,
+                M33 = 33,
+                M34 = 34,
+                OffsetX = 41,
+                OffsetY = 42,
+                OffsetZ = 43,
+                M44 = 44
+            };
 
             TestObject.Matrix3DProperty = matrix3D;
             Assert.Equal(matrix3D.M11, TestObject.Matrix3DProperty.M11);
@@ -1714,10 +1728,22 @@ namespace UnitTest
         {
             var matrix4x4 = new Matrix4x4
             {
-                M11 = 11, M12 = 12, M13 = 13, M14 = 14,
-                M21 = 21, M22 = 22, M23 = 23, M24 = 24,
-                M31 = 31, M32 = 32, M33 = 33, M34 = 34,
-                M41 = 41, M42 = 42, M43 = 43, M44 = 44
+                M11 = 11,
+                M12 = 12,
+                M13 = 13,
+                M14 = 14,
+                M21 = 21,
+                M22 = 22,
+                M23 = 23,
+                M24 = 24,
+                M31 = 31,
+                M32 = 32,
+                M33 = 33,
+                M34 = 34,
+                M41 = 41,
+                M42 = 42,
+                M43 = 43,
+                M44 = 44
             };
             TestObject.Matrix4x4Property = matrix4x4;
             Assert.Equal(matrix4x4.M11, TestObject.Matrix4x4Property.M11);
@@ -2101,8 +2127,8 @@ namespace UnitTest
 
             static void TestObject() => MakeObject();
 
-            static (IInitializeWithWindow, IWindowNative) MakeImports() 
-            { 
+            static (IInitializeWithWindow, IWindowNative) MakeImports()
+            {
                 var obj = MakeObject();
                 var initializeWithWindow = obj.As<IInitializeWithWindow>();
                 var windowNative = obj.As<IWindowNative>();
@@ -2112,7 +2138,7 @@ namespace UnitTest
             static void TestImports()
             {
                 var (initializeWithWindow, windowNative) = MakeImports();
-                
+
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
 
@@ -2151,6 +2177,27 @@ namespace UnitTest
             MacAlgorithmProvider mac = MacAlgorithmProvider.OpenAlgorithm(MacAlgorithmNames.HmacSha1);
             CryptographicKey cryptoKey = mac.CreateKey(keyMaterial);
             Assert.NotNull(cryptoKey);
+        }
+
+        class DerivedClass : BaseClass
+        { }
+
+        [Fact]
+        public void TestComposableGC()
+        {
+            static WeakReference MakeBaseWeakRef() => new WeakReference(new BaseClass());
+            
+            static WeakReference MakeDerivedWeakRef() => new WeakReference(new DerivedClass());
+
+            var baseRef = MakeBaseWeakRef();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            Assert.False(baseRef.IsAlive);
+
+            var derivedRef = MakeDerivedWeakRef();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            Assert.False(derivedRef.IsAlive);
         }
     }
 }

@@ -345,4 +345,9 @@ namespace TestComponentCSharp
     {
         Windows.Foundation.IAsyncOperation<Windows.Security.Credentials.UI.UserConsentVerificationResult> RequestVerificationForWindowAsync(UInt64 appWindow, String message, GUID riid);
     }
+
+    unsealed runtimeclass BaseClass
+    {
+        BaseClass();
+    }
 }
