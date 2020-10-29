@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.Text;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
@@ -154,8 +155,16 @@ namespace Generator
                     metadataBuilder);
                 foreach (SyntaxTree tree in context.Compilation.SyntaxTrees)
                 {
-                    writer.Model = context.Compilation.GetSemanticModel(tree);
-                    writer.Visit(tree.GetRoot());
+                    var issues = tree.GetDiagnostics();
+                    if (!issues.Any())
+                    { 
+                        writer.Model = context.Compilation.GetSemanticModel(tree);
+                        writer.Visit(tree.GetRoot());
+                    }
+                    else 
+                    {
+                        throw new Exception("Caught a diagnostic issue: " + issues.First().ToString());
+                    }
                 }
                 writer.FinalizeGeneration();
 
