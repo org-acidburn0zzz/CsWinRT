@@ -19,7 +19,7 @@ namespace WinRTDiagnostics
         /*  LogTime 
          *  * * writes a log file in my root gh directory  
          */
-        private void LogTime(string str)
+        private static void LogTime(string str)
         {
             string path = @"C:\gh\analyzerLog.txt";
             string msg = "[" + DateTime.Now.ToString("HH:mm:ss.ffffzzz" + "]" + " WinRTDiagnosticsAnalyzer Running. " + str);
@@ -60,11 +60,16 @@ namespace WinRTDiagnostics
                 isEnabledByDefault: true, description: AsyncDiagnosticDescription);
         }
 
+        /* SupportedDiagnostics is used by the analyzer base code I believe -- this array will grow as we add more diagnostics, 
+         *   so the getter will need to use Create that takes an array of DiagnosticDescriptor instead of just a single DiagDescr */
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get { return ImmutableArray.Create(makeRule(DiagnosticSeverity.Error)); } }
 
+
+        private static string AsyncActionInterfaceName = "Windows.Foundation.IAsyncAction";
         public override void Initialize(AnalysisContext context)
         {
-            context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze | GeneratedCodeAnalysisFlags.None);
+            context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+            context.EnableConcurrentExecution();
 
             // See https://github.com/dotnet/roslyn/blob/master/docs/analyzers/Analyzer%20Actions%20Semantics.md for more information
 
@@ -72,6 +77,7 @@ namespace WinRTDiagnostics
             context.RegisterCompilationStartAction(compilationContext =>
             {
                 AnalyzerConfigOptions configOptions = compilationContext.Options.AnalyzerConfigOptionsProvider.GlobalOptions;
+
                 if (configOptions.TryGetValue("build_property.CsWinRTComponent", out var isCsWinRTComponentStr))
                 {
                     if (bool.TryParse(isCsWinRTComponentStr, out var isCsWinRTComponent) && !isCsWinRTComponent)
@@ -82,12 +88,40 @@ namespace WinRTDiagnostics
 
                     LogTime("In CompilationStart, Before SyntaxNode");
 
+                    // todo: read GetTypeByMetadataName ; AsyncActionInterfaceName should vary 
+                    INamedTypeSymbol interfaceType = compilationContext.Compilation.GetTypeByMetadataName(AsyncActionInterfaceName);
+
                     /* Runtime components should not implement IAsyncAction (and similar) interfaces */
-                    context.RegisterSyntaxNodeAction(AnalyzeNode, SyntaxKind.SimpleBaseType);
+                    compilationContext.RegisterSymbolAction(
+                        // identifies all named types implementing this interface and reports diagnostics for all 
+                        symbolContext => { AnalyzeSymbol(symbolContext, interfaceType); },
+                        SymbolKind.NamedType);
                 }
             });
         }
-        
+
+        private static void AnalyzeSymbol(SymbolAnalysisContext context, INamedTypeSymbol interfaceType)
+        {
+            // type cast always succeeds, b/c we call with SymbolKind.NamedType
+            INamedTypeSymbol namedType = (INamedTypeSymbol)context.Symbol;
+ 
+            // check if the symbol implements the interface type
+            if (namedType.Interfaces.Contains(interfaceType))
+            {
+                string str = "Found interfaceType on namedType : " + interfaceType.ToString() + " on " + namedType.Name;
+                LogTime(str);
+
+                Diagnostic diagnostic = Diagnostic.Create(
+                    makeRule(DiagnosticSeverity.Error), 
+                    namedType.Locations[0],
+                    namedType.Name,
+                    AsyncActionInterfaceName);
+
+                context.ReportDiagnostic(diagnostic);
+            }
+        }
+       
+        /*
         private void ReportIfInterface(string asyncInterface, SyntaxNode node, SyntaxNodeAnalysisContext context)
 
         {
@@ -115,5 +149,6 @@ namespace WinRTDiagnostics
                 }
             }
         }
+        */
     }
 }
