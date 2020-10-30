@@ -1,6 +1,8 @@
 ﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using System;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -169,8 +171,18 @@ namespace Generator
                     // Don't generate code if there are diagnostic issues 
                     if (!issues.Any())
                     { 
-                        writer.Model = context.Compilation.GetSemanticModel(tree);
-                        writer.Visit(tree.GetRoot());
+                        SemanticModel semMod =  context.Compilation.GetSemanticModel(tree);
+                        ImmutableArray<Diagnostic> semIssues = semMod.GetDiagnostics();
+                        if (!semIssues.Any())
+                        {
+                            writer.Model = semMod;
+                            writer.Visit(tree.GetRoot());
+                        }
+                        else
+                        {
+                            foreach (Diagnostic d in semIssues) { writeToLog("Diagnostic found in semantic model: ", d); }
+                            throw new Exception("Caught a diagnostic issue in SemanticModel. Check log.");
+                        }
                     }
                     else 
                     {

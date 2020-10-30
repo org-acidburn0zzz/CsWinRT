@@ -70,8 +70,8 @@ namespace WinRTDiagnostics
 
         #endregion
 
-        // One of the async interfaces that Windows Runtime Components should not implement
-        private static string AsyncActionInterfaceName = "Windows.Foundation.IAsyncAction";
+        // Contains the fully qualified type name of the async interfaces that Windows Runtime Components should not implement
+        private static string[] AsyncInterfaceNames = new string[]{ "Windows.Foundation.IAsyncAction" };
 
         public void CatchWinRTDiagnostics(CompilationStartAnalysisContext compilationContext)
         {
@@ -85,14 +85,19 @@ namespace WinRTDiagnostics
                     return;
                 }
                 
-                LogTime("[v3] In CompilationStart, Before SyntaxNode");
-                
-                // todo: read GetTypeByMetadataName ; AsyncActionInterfaceName should vary 
-                INamedTypeSymbol interfaceType = compilationContext.Compilation.GetTypeByMetadataName(AsyncActionInterfaceName); 
-                /* Runtime components should not implement IAsyncAction (and similar) interfaces */
-                compilationContext.RegisterSymbolAction( 
-                    symbolContext => { AnalyzeSymbol(symbolContext, interfaceType); },
-                    SymbolKind.NamedType);
+                LogTime("[v4] In CompilationStart, Before SyntaxNode");
+
+                /* Create a diagnostic if any of the Async interfaces are implemented */
+                foreach (string asyncInterfaceName in AsyncInterfaceNames)
+                { 
+                    // todo: read GetTypeByMetadataName ; AsyncActionInterfaceName should vary 
+                    INamedTypeSymbol interfaceType = compilationContext.Compilation.GetTypeByMetadataName(asyncInterfaceName); 
+
+                    /* Runtime components should not implement IAsyncAction (and similar) interfaces */
+                    compilationContext.RegisterSymbolAction( 
+                        symbolContext => { AnalyzeSymbol(symbolContext, interfaceType, asyncInterfaceName); },
+                        SymbolKind.NamedType);
+                }
             } 
         }
 
@@ -105,11 +110,11 @@ namespace WinRTDiagnostics
         }
  
         // identifies all named types implementing this interface and reports diagnostics for all 
-        private static void AnalyzeSymbol(SymbolAnalysisContext context, INamedTypeSymbol interfaceType)
+        private static void AnalyzeSymbol(SymbolAnalysisContext context, INamedTypeSymbol interfaceType, string asyncInterfaceName)
         {
             // type cast always succeeds, b/c we call with SymbolKind.NamedType
             INamedTypeSymbol namedType = (INamedTypeSymbol)context.Symbol;
- 
+             
             // check if the symbol implements the interface type
             if (namedType.Interfaces.Contains(interfaceType))
             {
@@ -120,7 +125,7 @@ namespace WinRTDiagnostics
                     AsyncRule,
                     namedType.Locations[0],
                     namedType.Name,
-                    AsyncActionInterfaceName);
+                    asyncInterfaceName);
 
                 context.ReportDiagnostic(diagnostic);
             }
