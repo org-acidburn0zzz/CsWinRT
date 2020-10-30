@@ -32,6 +32,32 @@ namespace AuthoringSample
     public delegate void BasicDelegate(uint value);
     public delegate bool ComplexDelegate(double value, int value2);
 
+    public sealed class ErroneousClass : IAsyncAction
+    {
+        public AsyncActionCompletedHandler Completed { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
+        public Exception ErrorCode => throw new NotImplementedException();
+
+        public uint Id => throw new NotImplementedException();
+
+        public AsyncStatus Status => throw new NotImplementedException();
+
+        public void Cancel()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Close()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void GetResults()
+        {
+            throw new NotImplementedException();
+        }
+    }
+
     public sealed class BasicClass
     {
         private BasicEnum basicEnum = BasicEnum.First;

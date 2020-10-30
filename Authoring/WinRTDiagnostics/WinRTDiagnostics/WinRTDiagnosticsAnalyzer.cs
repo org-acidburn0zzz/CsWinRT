@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Threading;
 
@@ -15,18 +16,51 @@ namespace WinRTDiagnostics
     {
         public const string DiagnosticId = "WinRTDiagnostics";
 
-        // You can change these strings in the Resources.resx file. If you do not want your analyzer to be localize-able, you can use regular strings for Title and MessageFormat.
-        // See https://github.com/dotnet/roslyn/blob/master/docs/analyzers/Localizing%20Analyzers.md for more on localization
-        private static readonly LocalizableString AsyncDiagnosticTitle = new LocalizableResourceString(nameof(Resources.WME1084AnalyzerTitle), Resources.ResourceManager, typeof(Resources));
-        private static readonly LocalizableString AsyncDiagnosticMessageFormat = new LocalizableResourceString(nameof(Resources.WME1084AnalyzerMessageFormat), Resources.ResourceManager, typeof(Resources));
-        private static readonly LocalizableString AsyncDiagnosticDescription = new LocalizableResourceString(nameof(Resources.WME1084AnalyzerDescription), Resources.ResourceManager, typeof(Resources));
+        /*  LogTime 
+         *  * * writes a log file in my root gh directory  
+         */
+        private void LogTime(string str)
+        {
+            string path = @"C:\gh\analyzerLog.txt";
+            string msg = "[" + DateTime.Now.ToString("HH:mm:ss.ffffzzz" + "]" + " WinRTDiagnosticsAnalyzer Running. " + str);
+
+            using (StreamWriter sw = System.IO.File.AppendText(path))
+            {
+                sw.WriteLine(msg);
+            }
+        }
+
+        /* makeLocalizableString - constructor for the objects used in our DiagnosticRule
+        */
+        private static LocalizableResourceString makeLocalizableString(string name)
+        {
+            return new LocalizableResourceString(name, Resources.ResourceManager, typeof(Resources));
+        }
+
+        private static readonly LocalizableString AsyncDiagnosticTitle = makeLocalizableString(nameof(Resources.WME1084AnalyzerTitle));
+        private static readonly LocalizableString AsyncDiagnosticMessageFormat = makeLocalizableString(nameof(Resources.WME1084AnalyzerMessageFormat));
+        private static readonly LocalizableString AsyncDiagnosticDescription = makeLocalizableString(nameof(Resources.WME1084AnalyzerDescription));
         private const string Category = "Usage";
 
-        private static readonly DiagnosticDescriptor AsyncRule = new DiagnosticDescriptor(DiagnosticId, 
-            AsyncDiagnosticTitle, AsyncDiagnosticMessageFormat, Category, 
-            DiagnosticSeverity.Error, isEnabledByDefault: true, description: AsyncDiagnosticDescription);
+        
+        /* makeRule 
+        * * takes either DiagnosticSeverity.Warning or DiagnosticSeverity.Error
+        * *  and creates the diagnostic with that severity 
+        * todo: Figure out the story on the title and format (from the resources file).
+        *   either use the existing error message (from docs on diagnostics) or make a customizable one that takes the interface type as parameter
+        *   
+        * iirc the results from experiments: Error fails builds, Warning don't get caught by the source generator */
+        private static DiagnosticDescriptor makeRule(DiagnosticSeverity severity)
+        {
+            return new DiagnosticDescriptor(DiagnosticId,
+                AsyncDiagnosticTitle,          // see todo
+                AsyncDiagnosticMessageFormat,  // "   "
+                Category,
+                severity,
+                isEnabledByDefault: true, description: AsyncDiagnosticDescription);
+        }
 
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get { return ImmutableArray.Create(AsyncRule); } }
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get { return ImmutableArray.Create(makeRule(DiagnosticSeverity.Error)); } }
 
         public override void Initialize(AnalysisContext context)
         {
@@ -40,40 +74,44 @@ namespace WinRTDiagnostics
                 AnalyzerConfigOptions configOptions = compilationContext.Options.AnalyzerConfigOptionsProvider.GlobalOptions;
                 if (configOptions.TryGetValue("build_property.CsWinRTComponent", out var isCsWinRTComponentStr))
                 {
-                    var success = bool.TryParse(isCsWinRTComponentStr, out var isCsWinRTComponent) && isCsWinRTComponent;
-                    if (!success)
+                    if (bool.TryParse(isCsWinRTComponentStr, out var isCsWinRTComponent) && !isCsWinRTComponent)
                     {
                         /* Don't analyze if not a CsWinRT Component */
                         return;
                     }
+
+                    LogTime("In CompilationStart, Before SyntaxNode");
+
                     /* Runtime components should not implement IAsyncAction (and similar) interfaces */
                     context.RegisterSyntaxNodeAction(AnalyzeNode, SyntaxKind.SimpleBaseType);
                 }
             });
         }
+        
+        private void ReportIfInterface(string asyncInterface, SyntaxNode node, SyntaxNodeAnalysisContext context)
 
-        /* consider the following as an alternative method:
-           https://www.meziantou.net/working-with-types-in-a-roslyn-analyzer.htm */
+        {
+            string interfaceName = node.GetFirstToken().ToString();
+            if (interfaceName == asyncInterface)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(makeRule(DiagnosticSeverity.Error), context.Node.GetLocation()));
+            }
+        }
+
         private void AnalyzeNode(SyntaxNodeAnalysisContext context)
         {
+            // Logging temporarily 
+            // LogTime("Starting AnalyzeNode");
             var baseType = (SimpleBaseTypeSyntax)context.Node;
             foreach (SyntaxNode node in baseType.ChildNodes())
             {
                 if (node.IsKind(SyntaxKind.IdentifierName))
                 {
-                    var identifierToken_Ithink = node.GetFirstToken().ToString();
-                    if (identifierToken_Ithink == "IAsyncAction")
-                    {
-                        context.ReportDiagnostic(Diagnostic.Create(AsyncRule, context.Node.GetLocation()));
-                    }
+                    ReportIfInterface("IAsyncAction", node, context);
                 }
                 else if (node.IsKind(SyntaxKind.GenericName))
                 {
-                    var genericIdentifierToken_Ithink = node.GetFirstToken().ToString(); // maybe use .Text instead of ToString() ??
-                    if (genericIdentifierToken_Ithink == "IAsyncActionWithProgress")
-                    {
-                        context.ReportDiagnostic(Diagnostic.Create(AsyncRule, context.Node.GetLocation()));
-                    }
+                    ReportIfInterface("IAsyncActionWithProgress", node, context);
                 }
             }
         }
