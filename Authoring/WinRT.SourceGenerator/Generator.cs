@@ -134,14 +134,21 @@ namespace Generator
             peBlob.WriteContentTo(fs);
         }
 
+        private void writeToLog(string msg, Diagnostic d)
+        {   
+            Logger.Log("[" + DateTime.Now.ToString("HH:mm:ss.ffffzzz") + "]" + msg + " " + d.ToString());
+        }
+
         public void Execute(GeneratorExecutionContext context)
         {
             if (!IsCsWinRTComponent(context))
             {
                 return;
             }
-
+            
             Logger.Initialize(context);
+           
+            foreach (Diagnostic d in context.Compilation.GetDiagnostics()) { writeToLog("Diagnostic seen at beginning of execution", d); }
 
             try
             {
@@ -156,6 +163,10 @@ namespace Generator
                 foreach (SyntaxTree tree in context.Compilation.SyntaxTrees)
                 {
                     var issues = tree.GetDiagnostics();
+                  
+                    /* Loop for logging while investigating timing issue (order of gen/analyzer being called) */
+                    foreach (Diagnostic d in issues) {   writeToLog("Currently in SyntaxTreeLoop", d); }
+
                     if (!issues.Any())
                     { 
                         writer.Model = context.Compilation.GetSemanticModel(tree);
@@ -163,7 +174,7 @@ namespace Generator
                     }
                     else 
                     {
-                        throw new Exception("Caught a diagnostic issue: " + issues.First().ToString());
+                        throw new Exception("Caught a diagnostic issue! We should cancel generation now...");
                     }
                 }
                 writer.FinalizeGeneration();

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "WinRTDiagnostics.TestApp": {
+      "commandName": "Project",
+      "nativeDebugging":  true
+    }
+  }
+}
