@@ -16,8 +16,8 @@ namespace WinRTDiagnostics
     {
         public const string DiagnosticId = "WinRTDiagnostics";
 
-        /*  LogTime 
-         *  * * writes a log file in my root gh directory  
+        /* LogTime 
+         *   writes a log file in my root directory  
          */
         private static void LogTime(string str)
         {
@@ -30,7 +30,9 @@ namespace WinRTDiagnostics
             }
         }
 
-        /* makeLocalizableString - constructor for the objects used in our DiagnosticRule
+        #region ErrorMessageAndDiagnosticRules
+
+        /* makeLocalizableString - constructor for the objects used in our DiagnosticRule(s)
         */
         private static LocalizableResourceString makeLocalizableString(string name)
         {
@@ -40,9 +42,9 @@ namespace WinRTDiagnostics
         private static readonly LocalizableString AsyncDiagnosticTitle = makeLocalizableString(nameof(Resources.WME1084AnalyzerTitle));
         private static readonly LocalizableString AsyncDiagnosticMessageFormat = makeLocalizableString(nameof(Resources.WME1084AnalyzerMessageFormat));
         private static readonly LocalizableString AsyncDiagnosticDescription = makeLocalizableString(nameof(Resources.WME1084AnalyzerDescription));
+
         private const string Category = "Usage";
 
-        
         /* makeRule 
         * * takes either DiagnosticSeverity.Warning or DiagnosticSeverity.Error
         * *  and creates the diagnostic with that severity 
@@ -60,46 +62,49 @@ namespace WinRTDiagnostics
                 isEnabledByDefault: true, description: AsyncDiagnosticDescription);
         }
 
+        internal static DiagnosticDescriptor AsyncRule = makeRule(DiagnosticSeverity.Error);
+
         /* SupportedDiagnostics is used by the analyzer base code I believe -- this array will grow as we add more diagnostics, 
          *   so the getter will need to use Create that takes an array of DiagnosticDescriptor instead of just a single DiagDescr */
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get { return ImmutableArray.Create(makeRule(DiagnosticSeverity.Error)); } }
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get { return ImmutableArray.Create(AsyncRule); } }
 
+        #endregion
 
+        // One of the async interfaces that Windows Runtime Components should not implement
         private static string AsyncActionInterfaceName = "Windows.Foundation.IAsyncAction";
+
+        public void CatchWinRTDiagnostics(CompilationStartAnalysisContext compilationContext)
+        {
+            AnalyzerConfigOptions configOptions = compilationContext.Options.AnalyzerConfigOptionsProvider.GlobalOptions;
+ 
+            if (configOptions.TryGetValue("build_property.CsWinRTComponent", out var isCsWinRTComponentStr))
+            {
+                if (bool.TryParse(isCsWinRTComponentStr, out var isCsWinRTComponent) && !isCsWinRTComponent)
+                {
+                    /* Don't analyze if not a CsWinRT Component */
+                    return;
+                }
+                
+                LogTime("[v3] In CompilationStart, Before SyntaxNode");
+                
+                // todo: read GetTypeByMetadataName ; AsyncActionInterfaceName should vary 
+                INamedTypeSymbol interfaceType = compilationContext.Compilation.GetTypeByMetadataName(AsyncActionInterfaceName); 
+                /* Runtime components should not implement IAsyncAction (and similar) interfaces */
+                compilationContext.RegisterSymbolAction( 
+                    symbolContext => { AnalyzeSymbol(symbolContext, interfaceType); },
+                    SymbolKind.NamedType);
+            } 
+        }
+
         public override void Initialize(AnalysisContext context)
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.EnableConcurrentExecution();
-
-            // See https://github.com/dotnet/roslyn/blob/master/docs/analyzers/Analyzer%20Actions%20Semantics.md for more information
-
-            /* Check that the project is authoring a CsWinRT component before analyzing */
-            context.RegisterCompilationStartAction(compilationContext =>
-            {
-                AnalyzerConfigOptions configOptions = compilationContext.Options.AnalyzerConfigOptionsProvider.GlobalOptions;
-
-                if (configOptions.TryGetValue("build_property.CsWinRTComponent", out var isCsWinRTComponentStr))
-                {
-                    if (bool.TryParse(isCsWinRTComponentStr, out var isCsWinRTComponent) && !isCsWinRTComponent)
-                    {
-                        /* Don't analyze if not a CsWinRT Component */
-                        return;
-                    }
-
-                    LogTime("In CompilationStart, Before SyntaxNode");
-
-                    // todo: read GetTypeByMetadataName ; AsyncActionInterfaceName should vary 
-                    INamedTypeSymbol interfaceType = compilationContext.Compilation.GetTypeByMetadataName(AsyncActionInterfaceName);
-
-                    /* Runtime components should not implement IAsyncAction (and similar) interfaces */
-                    compilationContext.RegisterSymbolAction(
-                        // identifies all named types implementing this interface and reports diagnostics for all 
-                        symbolContext => { AnalyzeSymbol(symbolContext, interfaceType); },
-                        SymbolKind.NamedType);
-                }
-            });
+            /* Following method checks that the project is authoring a CsWinRT component before analyzing */
+            context.RegisterCompilationStartAction(CatchWinRTDiagnostics);
         }
-
+ 
+        // identifies all named types implementing this interface and reports diagnostics for all 
         private static void AnalyzeSymbol(SymbolAnalysisContext context, INamedTypeSymbol interfaceType)
         {
             // type cast always succeeds, b/c we call with SymbolKind.NamedType
@@ -112,7 +117,7 @@ namespace WinRTDiagnostics
                 LogTime(str);
 
                 Diagnostic diagnostic = Diagnostic.Create(
-                    makeRule(DiagnosticSeverity.Error), 
+                    AsyncRule,
                     namedType.Locations[0],
                     namedType.Name,
                     AsyncActionInterfaceName);
@@ -120,35 +125,5 @@ namespace WinRTDiagnostics
                 context.ReportDiagnostic(diagnostic);
             }
         }
-       
-        /*
-        private void ReportIfInterface(string asyncInterface, SyntaxNode node, SyntaxNodeAnalysisContext context)
-
-        {
-            string interfaceName = node.GetFirstToken().ToString();
-            if (interfaceName == asyncInterface)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(makeRule(DiagnosticSeverity.Error), context.Node.GetLocation()));
-            }
-        }
-
-        private void AnalyzeNode(SyntaxNodeAnalysisContext context)
-        {
-            // Logging temporarily 
-            // LogTime("Starting AnalyzeNode");
-            var baseType = (SimpleBaseTypeSyntax)context.Node;
-            foreach (SyntaxNode node in baseType.ChildNodes())
-            {
-                if (node.IsKind(SyntaxKind.IdentifierName))
-                {
-                    ReportIfInterface("IAsyncAction", node, context);
-                }
-                else if (node.IsKind(SyntaxKind.GenericName))
-                {
-                    ReportIfInterface("IAsyncActionWithProgress", node, context);
-                }
-            }
-        }
-        */
     }
 }
