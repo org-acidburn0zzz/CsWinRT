@@ -103,6 +103,10 @@ namespace WinRT
             return false;
         }
 
+        public static void RegisterComposableForInterface(object obj, IntPtr thisPtr) => TryRegisterComposableForInterface(obj, thisPtr);
+
+        public static object TryRegisterComposableForInterface(object obj, IntPtr thisPtr) => ComWrappers.GetOrRegisterObjectForComInstance(thisPtr, CreateObjectFlags.TrackerObject | (CreateObjectFlags)4, obj);
+
         public static void RegisterObjectForInterface(object obj, IntPtr thisPtr) => TryRegisterObjectForInterface(obj, thisPtr);
 
         public static object TryRegisterObjectForInterface(object obj, IntPtr thisPtr) => ComWrappers.GetOrRegisterObjectForComInstance(thisPtr, CreateObjectFlags.TrackerObject, obj);

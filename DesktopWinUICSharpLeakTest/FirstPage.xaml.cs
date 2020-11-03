@@ -18,6 +18,10 @@ using Microsoft.UI.Xaml.Navigation;
 
 namespace DesktopWinUICSharpLeakTest
 {
+    public class LeakedObject : Page
+    {
+        byte[] bytes = new byte[10_000_000];
+    };
     /// <summary>
     /// An empty page that can be used on its own or navigated to within a Frame.
     /// </summary>
@@ -40,7 +44,23 @@ namespace DesktopWinUICSharpLeakTest
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            App.Navigate(typeof(SecondPage));
+            static WeakReference MakeBaseWeakRef() => new WeakReference(new Page());
+
+            static WeakReference MakeDerivedWeakRef() => new WeakReference(new LeakedObject());
+
+            var baseRef = MakeBaseWeakRef();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            bool baseLeaked = baseRef.IsAlive;
+
+            var derivedRef = MakeDerivedWeakRef();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            bool derivedLeaked = derivedRef.IsAlive;
+
+            ((Button)sender).Content = derivedLeaked ? "object leaked" : "object collected";
+
+            //App.Navigate(typeof(SecondPage));
         }
     }
 }
